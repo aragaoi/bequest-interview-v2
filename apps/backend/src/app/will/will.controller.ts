@@ -6,9 +6,11 @@ import {
   Put,
   UploadedFile,
   UseInterceptors,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { WillService } from './will.service';
+import { Response } from 'express';
 
 @Controller('will')
 export class WillController {
@@ -21,6 +23,7 @@ export class WillController {
   }
 
   @Put(':id')
+  @UseInterceptors(FileInterceptor('file'))
   updateWill(
     @Param('id') id: number,
     @UploadedFile() file: Express.Multer.File
@@ -29,7 +32,9 @@ export class WillController {
   }
 
   @Get(':id')
-  getDocument(@Param('id') id: number) {
-    return this.willService.findOne(id);
+  async getDocument(@Param('id') id: number, @Res() res: Response) {
+    const will = await this.willService.findOne(id);
+    res.setHeader('Content-Type', will.mimeType);
+    return res.send(Buffer.from(will.buffer, 'base64'));
   }
 }
