@@ -1,10 +1,14 @@
 import { DocumentEditor } from './DocumentEditor';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 export function App() {
   return (
-    <div>
-      <DocumentEditor />
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<DocumentEditor />} />
+        <Route path="/document/:id" element={<DocumentEditor />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

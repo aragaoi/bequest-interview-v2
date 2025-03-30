@@ -12,24 +12,60 @@ import {
 } from '@syncfusion/ej2-react-documenteditor';
 import '@syncfusion/ej2-react-documenteditor/styles/material.css';
 import '@syncfusion/ej2-splitbuttons/styles/material.css';
-import { useEffect, useRef } from 'react';
+import axios from 'axios';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Document } from './types';
+import { debounce } from 'lodash';
+import { useNavigate, useParams } from 'react-router-dom';
 
 DocumentEditorContainerComponent.Inject(Toolbar);
 registerLicense(
   'Ngo9BigBOggjHTQxAR8/V1NMaF1cXmhNYVJ2WmFZfVtgdV9DZVZUTGYuP1ZhSXxWdkZiWH9fdXJVR2BaWEE='
 );
 
+const WILL_BASE_URL = 'http://localhost:3000/api/will';
+
+const willClient = axios.create({
+  baseURL: WILL_BASE_URL,
+  headers: {
+    'Content-Type': 'multipart/form-data',
+  },
+});
+
 export const DocumentEditor = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<DocumentEditorContainerComponent>(null);
+  const [document, setDocument] = useState<Document | null>(null);
+  const navigate = useNavigate();
+  const { id } = useParams();
+
+  const openFile = useCallback((file?: File | Blob) => {
+    if (!file) return;
+
+    const editor = editorRef.current!.documentEditor;
+    editor.open(file);
+  }, []);
+
+  useEffect(() => {
+    if (id && (!document || document.id !== Number(id))) {
+      willClient.get(`/${id}`, { responseType: 'blob' }).then((response) => {
+        const file = new File([response.data], 'Document.docx', {
+          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+        openFile(file);
+        setDocument({
+          id: Number(id),
+          mimeType: response.data.type,
+          size: response.data.size,
+          buffer: '',
+        });
+      });
+    }
+  }, [id, document, openFile]);
 
   const handleOpen = (event: React.ChangeEvent<HTMLInputElement>) => {
     const fileInput = event.target.files?.[0];
-    const editor = editorRef.current!.documentEditor;
-
-    if (!fileInput) return;
-
-    editor.open(fileInput);
+    openFile(fileInput);
   };
 
   const handleDownload = async () => {
@@ -43,18 +79,35 @@ export const DocumentEditor = () => {
     downloadFile(file);
   };
 
+  const saveFile = useCallback(
+    async (file: File) => {
+      if (id) {
+        await willClient.put(`/${id}`, {
+          file,
+        });
+      } else {
+        const response = await willClient.post('', {
+          file,
+        });
+        setDocument(response.data);
+        navigate(`/document/${response.data.id}`, { replace: true });
+      }
+    },
+    [document, setDocument, navigate]
+  );
+
   useEffect(() => {
     const editor = editorRef.current!.documentEditor;
 
-    editor.contentChange = async () => {
+    editor.contentChange = debounce(async () => {
       console.log('Document Content changed');
       const blob = await editor.saveAsBlob('Docx');
       const file = new File([blob], `Document.docx`, {
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       });
 
-      console.log(file);
-    };
+      await saveFile(file);
+    }, 1000);
   }, []);
 
   return (
