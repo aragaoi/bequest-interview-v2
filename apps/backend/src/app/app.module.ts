@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WillModule } from './will/will.module';
+import { ClausesModule } from './clauses/clauses.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { WillModule } from './will/will.module';
       autoLoadEntities: true,
     }),
     WillModule,
+    ClausesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
