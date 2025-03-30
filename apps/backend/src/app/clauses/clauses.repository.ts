@@ -1,40 +1,47 @@
+import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 
 const DOCX_EXTENSION = '.docx';
 
-export interface Clause {
-  id: number;
+interface Clause {
+  id: string;
   title: string;
   content: Buffer;
 }
 
+@Injectable()
 export class ClausesRepository {
-  private readonly clausesPath = path.join(
-    process.cwd(),
-    'apps',
-    'backend',
-    'src',
-    'assets',
-    'Clauses'
-  );
+  private readonly clausesPath: string;
 
-  findAll(): Clause[] {
+  constructor() {
+    this.clausesPath = path.join(
+      process.cwd(),
+      'apps',
+      'backend',
+      'src',
+      'assets',
+      'Clauses'
+    );
+  }
+
+  async findAll(): Promise<Clause[]> {
     try {
       const files = fs.readdirSync(this.clausesPath);
       return files
         .filter((file) => file.endsWith(DOCX_EXTENSION))
-        .map((file, index) => {
-          const content = fs.readFileSync(path.join(this.clausesPath, file));
-          return {
-            id: index + 1,
-            title: file.replace(DOCX_EXTENSION, ''),
-            content,
-          };
-        });
+        .map((file) => ({
+          id: file,
+          title: this.toProperCase(file.replace(DOCX_EXTENSION, '')),
+          content: fs.readFileSync(path.join(this.clausesPath, file)),
+        }));
     } catch (error) {
       console.error('Error reading clauses:', error);
       return [];
     }
+  }
+
+  private toProperCase(str: string): string {
+    return str.split(/(?=[A-Z])/).join(' ');
   }
 }
