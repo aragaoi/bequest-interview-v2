@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Document } from './types';
 import { debounce } from 'lodash';
 import { useNavigate, useParams } from 'react-router-dom';
+import { DocumentSidebar } from './DocumentSidebar';
 
 DocumentEditorContainerComponent.Inject(Toolbar);
 registerLicense(
@@ -98,6 +99,7 @@ export const DocumentEditor = () => {
 
   useEffect(() => {
     const editor = editorRef.current!.documentEditor;
+    editor.documentEditorSettings.showBookmarks = true;
 
     editor.contentChange = debounce(async () => {
       console.log('Document Content changed');
@@ -134,27 +136,32 @@ export const DocumentEditor = () => {
             Download
           </button>
         </div>
-        <div>
-          <DocumentEditorContainerComponent
-            height="calc(100vh - 200px)"
-            serviceUrl="https://ej2services.syncfusion.com/production/web-services/api/documenteditor/"
-            enableToolbar={true}
-            showPropertiesPane={false}
-            ref={editorRef}
-            toolbarItems={[
-              'New',
-              'Open',
-              'Separator',
-              'Undo',
-              'Redo',
-              'Separator',
-              'Bookmark',
-              'Table',
-              'Separator',
-              'Find',
-            ]}
-            contentChange={(e) => {}}
-          />
+        <div className="flex flex-row">
+          <div className="w-full w-3/4">
+            <DocumentEditorContainerComponent
+              height="calc(100vh - 200px)"
+              serviceUrl="https://ej2services.syncfusion.com/production/web-services/api/documenteditor/"
+              enableToolbar={true}
+              showPropertiesPane={false}
+              ref={editorRef}
+              toolbarItems={[
+                'New',
+                'Open',
+                'Separator',
+                'Undo',
+                'Redo',
+                'Separator',
+                'Bookmark',
+                'Table',
+                'Separator',
+                'Find',
+              ]}
+              contentChange={(e) => {}}
+            />
+          </div>
+          <div className="w-full w-1/4 mt-4 mt-0">
+            {editorRef.current && <DocumentSidebar editorRef={editorRef} />}
+          </div>
         </div>
       </div>
     </>
