@@ -3,11 +3,13 @@ import {
   Get,
   Param,
   Post,
+  Put,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { WillService } from './will.service';
+import { Will } from './will.entity';
 
 @Controller('will')
 export class WillController {
@@ -15,8 +17,16 @@ export class WillController {
 
   @Post()
   @UseInterceptors(FileInterceptor('file'))
-  saveDocument(@UploadedFile() file: Express.Multer.File) {
+  createWill(@UploadedFile() file: Express.Multer.File) {
     return this.willService.createFromFile(file);
+  }
+
+  @Put(':id')
+  updateWill(
+    @Param('id') id: number,
+    @UploadedFile() file: Express.Multer.File
+  ) {
+    return this.willService.update(id, file);
   }
 
   @Get(':id')

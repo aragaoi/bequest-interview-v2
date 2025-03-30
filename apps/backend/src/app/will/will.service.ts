@@ -10,7 +10,7 @@ export class WillService {
     this.willRepository = this.dataSource.getRepository(Will);
   }
 
-  async createFromFile(file: Express.Multer.File) {
+  async create(file: Express.Multer.File) {
     const will = new Will();
 
     will.buffer = file.buffer.toString('base64');
@@ -22,6 +22,16 @@ export class WillService {
     return this.willRepository.save(will);
   }
 
+  async updateFromFile(id: number, file: Express.Multer.File) {
+    const will = await this.findOne(id);
+
+    will.buffer = file.buffer.toString('base64');
+    will.mimeType = file.mimetype;
+    will.size = file.size;
+    will.updatedAt = new Date();
+
+    return this.willRepository.save(will);
+  }
   findOne(id: number) {
     return this.willRepository.findOne({ where: { id } });
   }
