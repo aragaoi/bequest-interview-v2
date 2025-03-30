@@ -10,7 +10,7 @@ export class WillService {
     this.willRepository = this.dataSource.getRepository(Will);
   }
 
-  async create(file: Express.Multer.File) {
+  async createFromFile(file: Express.Multer.File) {
     const will = new Will();
 
     will.buffer = file.buffer.toString('base64');
@@ -32,6 +32,7 @@ export class WillService {
 
     return this.willRepository.save(will);
   }
+
   findOne(id: number) {
     return this.willRepository.findOne({ where: { id } });
   }
