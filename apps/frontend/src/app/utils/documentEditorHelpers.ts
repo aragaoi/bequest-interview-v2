@@ -3,12 +3,11 @@ import {
   SectionBreakType,
 } from '@syncfusion/ej2-documenteditor';
 import { getWill, saveWill } from '../api/willApi';
-import { Clause, Document } from '../types';
 import {
-  DOCUMENT_MIME_TYPE,
   CURRENT_OFFSET_LOCAL_STORAGE_KEY,
+  DOCUMENT_MIME_TYPE,
 } from '../constants';
-import { set } from 'lodash';
+import { Clause, Document } from '../types';
 const generateUniqueBookmarkName = (
   existingBookmarks: string[],
   baseTitle: string
@@ -28,8 +27,9 @@ export const insertClause = (
   documentEditor: DocumentEditor | undefined,
   clause: Clause
 ) => {
-  const { editor, selection } = documentEditor ?? {};
-  if (!editor || !selection || !documentEditor) return;
+  if (!documentEditor) return;
+
+  const { editor, selection } = documentEditor;
 
   const existingBookmarks = documentEditor.getBookmarks() || [];
   const bookmarkName = generateUniqueBookmarkName(
@@ -71,18 +71,18 @@ export const removeClause = (
 };
 
 export const openDocumentFromServer = async (
-  id: string,
+  id: number,
   documentEditor?: DocumentEditor
-) => {
+): Promise<Document | null> => {
   if (!documentEditor) return null;
 
   try {
-    const document = await getWill(id);
-    const file = new File([document.blob], 'document.docx', {
+    const will = await getWill(id);
+    const file = new File([will.blob], 'document.docx', {
       type: DOCUMENT_MIME_TYPE,
     });
     documentEditor.open(file);
-    return document;
+    return will;
   } catch (error) {
     console.error('Error opening document:', error);
     return null;
@@ -90,14 +90,14 @@ export const openDocumentFromServer = async (
 };
 
 export const reloadDocumentInEditor = async (
-  id: string,
+  id?: number,
   documentEditor?: DocumentEditor
 ) => {
-  if (!documentEditor || !id) return null;
+  if (!documentEditor) return null;
 
   try {
-    await saveDocument(documentEditor, id);
-    return await openDocumentFromServer(id, documentEditor);
+    const savedDocument = await saveDocument(documentEditor, id);
+    return openDocumentFromServer(id ?? savedDocument.id, documentEditor);
   } catch (error) {
     console.error('Error reloading document:', error);
     return null;
@@ -106,8 +106,8 @@ export const reloadDocumentInEditor = async (
 
 export const saveDocument = async (
   documentEditor: DocumentEditor,
-  id?: string
-): Promise<Document | null> => {
+  id?: number
+): Promise<Document> => {
   try {
     const content = await documentEditor.saveAsBlob('Docx');
     const file = new File([content], 'document.docx', {
@@ -118,7 +118,7 @@ export const saveDocument = async (
     return document;
   } catch (error) {
     console.error('Error saving document:', error);
-    return null;
+    throw error;
   }
 };
 
@@ -157,9 +157,16 @@ export const saveCursorPositionAfterBookmark = (
 };
 
 export const resetCursor = (editor: DocumentEditor) => {
+  if (!editor?.selection) return;
+
   const currentOffset = localStorage.getItem(CURRENT_OFFSET_LOCAL_STORAGE_KEY);
   if (currentOffset && currentOffset.indexOf('-1') === -1) {
-    editor.selection.select(currentOffset, currentOffset);
-    localStorage.removeItem(CURRENT_OFFSET_LOCAL_STORAGE_KEY);
+    try {
+      editor.selection.select(currentOffset, currentOffset);
+    } catch (error) {
+      console.error('Error resetting cursor:', error);
+    } finally {
+      localStorage.removeItem(CURRENT_OFFSET_LOCAL_STORAGE_KEY);
+    }
   }
 };

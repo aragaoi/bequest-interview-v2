@@ -1,74 +1,38 @@
 import { DocumentEditor } from '@syncfusion/ej2-documenteditor';
-import { DocumentEditorContainerComponent } from '@syncfusion/ej2-react-documenteditor';
-import { RefObject, useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { fetchClauses } from './api/clausesApi';
 import { ClauseDialog } from './ClauseDialog';
 import { AddClauseButton } from './components/AddClauseButton';
 import { Clause } from './types';
 import { insertClause, removeClause } from './utils/documentEditorHelpers';
-import { fetchClauses } from './api/clausesApi';
+import { DocumentEditorContainerComponent } from '@syncfusion/ej2-react-documenteditor';
 
 interface DocumentSidebarProps {
-  editorRef: RefObject<DocumentEditorContainerComponent | null>;
+  editorRef: React.RefObject<DocumentEditorContainerComponent>;
   onClauseAdded?: (bookmark: string) => Promise<void>;
+  bookmarks: string[];
 }
 
 export const DocumentSidebar = ({
   editorRef,
   onClauseAdded,
+  bookmarks,
 }: DocumentSidebarProps) => {
-  const documentEditor = editorRef.current?.documentEditor as DocumentEditor;
-  const [bookmarks, setBookmarks] = useState<string[]>([]);
   const [showDialog, setShowDialog] = useState(false);
   const [availableClauses, setAvailableClauses] = useState<Clause[]>([]);
-  const { id } = useParams();
-
-  const updateBookmarksList = useCallback(() => {
-    if (!documentEditor) return;
-    const currentBookmarks = documentEditor.getBookmarks() || [];
-    setBookmarks(currentBookmarks);
-  }, [documentEditor]);
-
-  useEffect(() => {
-    if (!documentEditor) return;
-
-    updateBookmarksList();
-
-    const originalContentChange = documentEditor.contentChange;
-    const originalDocumentChange = documentEditor.documentChange;
-
-    documentEditor.contentChange = () => {
-      updateBookmarksList();
-      if (originalContentChange) {
-        originalContentChange();
-      }
-    };
-
-    documentEditor.documentChange = () => {
-      updateBookmarksList();
-      if (originalDocumentChange) {
-        originalDocumentChange();
-      }
-    };
-
-    // Cleanup
-    return () => {
-      if (originalContentChange) {
-        documentEditor.contentChange = originalContentChange;
-      }
-    };
-  }, [documentEditor, updateBookmarksList]);
 
   const handleAddClause = async (bookmark?: string, atStart?: boolean) => {
-    if (!documentEditor) return;
+    const documentEditor = editorRef.current?.documentEditor;
 
-    if (bookmark) {
-      documentEditor.selection.selectBookmark(bookmark);
-      documentEditor.selection.moveToLineEnd();
-    }
+    if (documentEditor) {
+      if (bookmark) {
+        documentEditor.selection.selectBookmark(bookmark);
+        documentEditor.selection.moveToLineEnd();
+      }
 
-    if (atStart) {
-      documentEditor.selection.moveToDocumentStart();
+      if (atStart) {
+        documentEditor.selection.moveToDocumentStart();
+      }
     }
 
     const clauses = await fetchClauses();
@@ -77,14 +41,18 @@ export const DocumentSidebar = ({
   };
 
   const handleCloseDialog = useCallback(() => {
+    const documentEditor = editorRef.current?.documentEditor;
+
     setShowDialog(false);
     setTimeout(() => {
-      documentEditor.focusIn();
+      documentEditor?.focusIn();
     }, 100);
-  }, [documentEditor]);
+  }, [editorRef]);
 
   const handleSelectClause = async (clause: Clause) => {
-    if (!documentEditor || !id) return;
+    if (!editorRef.current) return;
+
+    const documentEditor = editorRef.current.documentEditor;
 
     const newBookmark = insertClause(documentEditor, clause);
 
@@ -94,11 +62,11 @@ export const DocumentSidebar = ({
   };
 
   const handleRemoveClause = (bookmark: string) => {
-    if (!documentEditor) return;
+    if (!editorRef.current) return;
+
+    const documentEditor = editorRef.current.documentEditor;
+
     removeClause(documentEditor, bookmark);
-    setBookmarks((prevBookmarks) =>
-      prevBookmarks.filter((b) => b !== bookmark)
-    );
   };
 
   return (
@@ -125,7 +93,9 @@ export const DocumentSidebar = ({
               <span
                 className="cursor-pointer flex-grow text-sm text-blue-700 hover:text-blue-800 transition-colors"
                 onClick={() => {
-                  documentEditor.selection.selectBookmark(bookmark);
+                  editorRef.current?.documentEditor.selection.selectBookmark(
+                    bookmark
+                  );
                 }}
               >
                 {bookmark}

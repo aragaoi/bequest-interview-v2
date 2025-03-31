@@ -9,10 +9,10 @@ const willClient = axios.create({
   },
 });
 
-export const getWill = async (id: string) => {
+export const getWill = async (id: number) => {
   const response = await willClient.get(`/${id}`, { responseType: 'blob' });
   return {
-    id: Number(id),
+    id: id,
     mimeType: response.data.type,
     size: response.data.size,
     buffer: response.data,
@@ -20,10 +20,10 @@ export const getWill = async (id: string) => {
   };
 };
 
-export const saveWill = async (file: File, id?: string) => {
+export const saveWill = async (file: File, id?: number): Promise<Document> => {
   if (id) {
     await willClient.put(`/${id}`, { file });
-    return null;
+    return getWill(id);
   } else {
     const response = await willClient.post('', { file });
     return response.data;

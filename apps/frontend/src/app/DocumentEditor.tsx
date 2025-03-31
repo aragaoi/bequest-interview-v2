@@ -7,13 +7,14 @@ import '@syncfusion/ej2-lists/styles/material.css';
 import '@syncfusion/ej2-navigations/styles/material.css';
 import '@syncfusion/ej2-popups/styles/material.css';
 import {
+  ContainerContentChangeEventArgs,
   DocumentEditorContainerComponent,
   Toolbar,
 } from '@syncfusion/ej2-react-documenteditor';
 import '@syncfusion/ej2-react-documenteditor/styles/material.css';
 import '@syncfusion/ej2-splitbuttons/styles/material.css';
 import { debounce } from 'lodash';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   AUTO_SAVE_DEBOUNCE_TIMEOUT_MS,
@@ -40,12 +41,26 @@ export const DocumentEditor = () => {
   const editorRef = useRef<DocumentEditorContainerComponent>(null);
   const [document, setDocument] = useState<Document | null>(null);
   const [isOpeningNewFile, setIsOpeningNewFile] = useState(false);
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id: idParam } = useParams();
+
+  const id = useMemo(() => (idParam ? Number(idParam) : undefined), [idParam]);
+
+  const updateBookmarksList = useCallback(() => {
+    if (!editorRef.current) return;
+    const currentBookmarks =
+      editorRef.current.documentEditor?.getBookmarks() || [];
+    setBookmarks(currentBookmarks);
+  }, []);
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    updateBookmarksList();
+  }, [updateBookmarksList]);
 
   const reloadDocument = useCallback(async () => {
-    if (!id) return;
-
     const reloadedDocument = await reloadDocumentInEditor(
       id,
       editorRef.current?.documentEditor
@@ -111,26 +126,36 @@ export const DocumentEditor = () => {
     }
   }, [id, navigate]);
 
-  useEffect(() => {
-    const editor = editorRef.current!.documentEditor;
-    editor.documentEditorSettings.showBookmarks = true;
-
-    const debouncedSaveFile = debounce(async () => {
+  const debouncedSaveFile = useCallback(
+    debounce(async () => {
       await saveFile();
-    }, AUTO_SAVE_DEBOUNCE_TIMEOUT_MS);
+    }, AUTO_SAVE_DEBOUNCE_TIMEOUT_MS),
+    [saveFile]
+  );
 
-    editor.contentChange = () => {
-      console.log('Document Content changed');
+  const handleContentChange = useCallback(() => {
+    debouncedSaveFile();
+    updateBookmarksList();
+  }, [debouncedSaveFile, updateBookmarksList]);
+
+  const handleDocumentChange = useCallback(
+    (e: ContainerContentChangeEventArgs) => {
+      if (!e?.source) return;
+
+      const currentOffset = e.source.documentEditor.selection.startOffset;
+      e.source.documentEditor.selection.selectAll();
+      const selectedContent = e.source.documentEditor.selection.text;
+      e.source.documentEditor.selection.select(currentOffset, currentOffset);
+
+      if (selectedContent.trim() === '') return;
+
+      resetCursor(e.source.documentEditor);
+
       debouncedSaveFile();
-    };
-    editor.documentChange = () => {
-      console.log('Document changed');
-
-      resetCursor(editor);
-
-      debouncedSaveFile();
-    };
-  }, [saveFile]);
+      updateBookmarksList();
+    },
+    [debouncedSaveFile, updateBookmarksList]
+  );
 
   return (
     <>
@@ -179,14 +204,18 @@ export const DocumentEditor = () => {
                 'Separator',
                 'Find',
               ]}
-              contentChange={(e) => {}}
+              contentChange={handleContentChange}
+              documentChange={handleDocumentChange}
             />
           </div>
           <div className="w-1/4 mt-4 mt-0">
             {editorRef && (
               <DocumentSidebar
-                editorRef={editorRef}
+                editorRef={
+                  editorRef as React.RefObject<DocumentEditorContainerComponent>
+                }
                 onClauseAdded={handleClauseAdded}
+                bookmarks={bookmarks}
               />
             )}
           </div>
@@ -195,3 +224,4 @@ export const DocumentEditor = () => {
     </>
   );
 };
+
