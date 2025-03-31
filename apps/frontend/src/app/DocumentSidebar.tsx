@@ -86,10 +86,16 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
     }
   }, []);
 
-  const handleAddClause = (bookmark?: string) => {
-    if (bookmark && documentEditor) {
+  const handleAddClause = (bookmark?: string, atStart?: boolean) => {
+    if (!documentEditor) return;
+
+    if (bookmark) {
       documentEditor.selection.selectBookmark(bookmark);
       documentEditor.selection.moveToLineEnd();
+    }
+
+    if (atStart) {
+      documentEditor.selection.moveToLineStart();
     }
 
     fetchClauses();
@@ -142,10 +148,16 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
     <div className="h-full bg-white p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Clauses</h2>
+        <AddClauseButton
+          onClick={() => handleAddClause()}
+          title="Add clause at current position"
+          variant="text"
+          text="Add Clause"
+        />
       </div>
       <div className="space-y-1 h-[calc(100%-3rem)] overflow-y-auto">
         <AddClauseButton
-          onClick={() => handleAddClause()}
+          onClick={() => handleAddClause(undefined, true)}
           title="Add clause at the beginning"
           variant="text"
           text="Add Clause at Start"
