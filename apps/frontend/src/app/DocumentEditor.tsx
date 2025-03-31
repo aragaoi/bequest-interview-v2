@@ -38,6 +38,7 @@ export const DocumentEditor = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<DocumentEditorContainerComponent>(null);
   const [document, setDocument] = useState<Document | null>(null);
+  const [isOpeningNewFile, setIsOpeningNewFile] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -45,18 +46,16 @@ export const DocumentEditor = () => {
     if (!file) return;
     const editor = editorRef.current!.documentEditor;
     editor.open(file);
+    setIsOpeningNewFile(false);
   }, []);
 
   const resetDocumentState = useCallback(() => {
-    setDocument(null);
     navigate('/', { replace: true });
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setDocument(null);
   }, [navigate]);
 
   useEffect(() => {
-    if (id && (!document || document.id !== Number(id))) {
+    if (id && (!document || document.id !== Number(id)) && !isOpeningNewFile) {
       willClient.get(`/${id}`, { responseType: 'blob' }).then((response) => {
         const file = new File([response.data], 'Document.docx', {
           type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -70,12 +69,13 @@ export const DocumentEditor = () => {
         });
       });
     }
-  }, [id, document, openFile]);
+  }, [id, document, openFile, isOpeningNewFile]);
 
   const handleOpen = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const fileInput = event.target.files?.[0];
     if (!fileInput) return;
 
+    setIsOpeningNewFile(true);
     resetDocumentState();
     openFile(fileInput);
   };
