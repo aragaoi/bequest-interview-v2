@@ -13,3 +13,6 @@ export const DOCUMENT_EDITOR_SERVICE_URL =
   'https://ej2services.syncfusion.com/production/web-services/api/documenteditor/';
 export const SYNCFUSION_LICENSE_KEY =
   'Ngo9BigBOggjHTQxAR8/V1NMaF1cXmhNYVJ2WmFZfVtgdV9DZVZUTGYuP1ZhSXxWdkZiWH9fdXJVR2BaWEE=';
+
+// Local storage keys
+export const CURRENT_OFFSET_LOCAL_STORAGE_KEY = 'currentOffset';

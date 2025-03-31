@@ -10,7 +10,7 @@ import { fetchClauses } from './api/clausesApi';
 
 interface DocumentSidebarProps {
   editorRef: RefObject<DocumentEditorContainerComponent | null>;
-  onClauseAdded?: () => void;
+  onClauseAdded?: (bookmark: string) => Promise<void>;
 }
 
 export const DocumentSidebar = ({
@@ -68,7 +68,7 @@ export const DocumentSidebar = ({
     }
 
     if (atStart) {
-      documentEditor.selection.moveToLineStart();
+      documentEditor.selection.moveToDocumentStart();
     }
 
     const clauses = await fetchClauses();
@@ -85,10 +85,12 @@ export const DocumentSidebar = ({
 
   const handleSelectClause = async (clause: Clause) => {
     if (!documentEditor || !id) return;
+
     const newBookmark = insertClause(documentEditor, clause);
+
     if (!newBookmark) return;
 
-    onClauseAdded?.();
+    await onClauseAdded?.(newBookmark);
   };
 
   const handleRemoveClause = (bookmark: string) => {

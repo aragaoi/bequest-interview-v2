@@ -15,7 +15,7 @@ export const getWill = async (id: string) => {
     id: Number(id),
     mimeType: response.data.type,
     size: response.data.size,
-    buffer: '',
+    buffer: response.data,
     blob: response.data,
   };
 };

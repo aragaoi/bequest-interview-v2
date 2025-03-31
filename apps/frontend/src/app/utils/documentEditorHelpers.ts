@@ -4,7 +4,11 @@ import {
 } from '@syncfusion/ej2-documenteditor';
 import { getWill, saveWill } from '../api/willApi';
 import { Clause, Document } from '../types';
-
+import {
+  DOCUMENT_MIME_TYPE,
+  CURRENT_OFFSET_LOCAL_STORAGE_KEY,
+} from '../constants';
+import { set } from 'lodash';
 const generateUniqueBookmarkName = (
   existingBookmarks: string[],
   baseTitle: string
@@ -74,10 +78,10 @@ export const openDocumentFromServer = async (
 
   try {
     const document = await getWill(id);
-    const blob = new Blob([document.buffer], {
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    const file = new File([document.blob], 'document.docx', {
+      type: DOCUMENT_MIME_TYPE,
     });
-    documentEditor.open(blob);
+    documentEditor.open(file);
     return document;
   } catch (error) {
     console.error('Error opening document:', error);
@@ -107,7 +111,7 @@ export const saveDocument = async (
   try {
     const content = await documentEditor.saveAsBlob('Docx');
     const file = new File([content], 'document.docx', {
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      type: DOCUMENT_MIME_TYPE,
     });
 
     const document = await saveWill(file, id);
@@ -137,5 +141,25 @@ export const downloadDocument = async (
     window.URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Error downloading document:', error);
+  }
+};
+
+export const saveCursorPositionAfterBookmark = (
+  editor: DocumentEditor,
+  bookmark: string
+) => {
+  editor.selection.selectBookmark(bookmark);
+  editor.selection.moveToNextLine();
+  localStorage.setItem(
+    CURRENT_OFFSET_LOCAL_STORAGE_KEY,
+    editor.selection.startOffset
+  );
+};
+
+export const resetCursor = (editor: DocumentEditor) => {
+  const currentOffset = localStorage.getItem(CURRENT_OFFSET_LOCAL_STORAGE_KEY);
+  if (currentOffset && currentOffset.indexOf('-1') === -1) {
+    editor.selection.select(currentOffset, currentOffset);
+    localStorage.removeItem(CURRENT_OFFSET_LOCAL_STORAGE_KEY);
   }
 };

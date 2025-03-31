@@ -27,6 +27,8 @@ import {
   downloadDocument,
   openDocumentFromServer,
   reloadDocumentInEditor,
+  resetCursor,
+  saveCursorPositionAfterBookmark,
   saveDocument,
 } from './utils/documentEditorHelpers';
 
@@ -43,14 +45,16 @@ export const DocumentEditor = () => {
 
   const reloadDocument = useCallback(async () => {
     if (!id) return;
+
     const reloadedDocument = await reloadDocumentInEditor(
       id,
       editorRef.current?.documentEditor
     );
+
     if (reloadedDocument) {
       setDocument(reloadedDocument);
     }
-  }, [id]);
+  }, [id, editorRef]);
 
   const openFile = useCallback((file?: File | Blob) => {
     if (!file) return;
@@ -87,6 +91,16 @@ export const DocumentEditor = () => {
     await downloadDocument(DEFAULT_DOCUMENT_NAME, editor);
   };
 
+  const handleClauseAdded = useCallback(
+    async (bookmark: string) => {
+      await reloadDocument();
+
+      const editor = editorRef.current!.documentEditor;
+      saveCursorPositionAfterBookmark(editor, bookmark);
+    },
+    [editorRef, reloadDocument]
+  );
+
   const saveFile = useCallback(async () => {
     const editor = editorRef.current!.documentEditor;
     const savedDocument = await saveDocument(editor, id);
@@ -111,6 +125,9 @@ export const DocumentEditor = () => {
     };
     editor.documentChange = () => {
       console.log('Document changed');
+
+      resetCursor(editor);
+
       debouncedSaveFile();
     };
   }, [saveFile]);
@@ -169,7 +186,7 @@ export const DocumentEditor = () => {
             {editorRef && (
               <DocumentSidebar
                 editorRef={editorRef}
-                onClauseAdded={reloadDocument}
+                onClauseAdded={handleClauseAdded}
               />
             )}
           </div>
