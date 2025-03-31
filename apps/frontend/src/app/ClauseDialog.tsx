@@ -1,10 +1,5 @@
 import { DialogComponent } from '@syncfusion/ej2-react-popups';
-
-interface Clause {
-  id: string;
-  title: string;
-  content: string;
-}
+import { Clause } from './types';
 
 interface ClauseDialogProps {
   visible: boolean;

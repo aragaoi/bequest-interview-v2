@@ -4,3 +4,9 @@ export type Document = {
   size: number;
   buffer: string;
 };
+
+export interface Clause {
+  id: string;
+  title: string;
+  content: string;
+} 

@@ -12,27 +12,26 @@ import {
 } from '@syncfusion/ej2-react-documenteditor';
 import '@syncfusion/ej2-react-documenteditor/styles/material.css';
 import '@syncfusion/ej2-splitbuttons/styles/material.css';
-import axios from 'axios';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Document } from './types';
 import { debounce } from 'lodash';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+  AUTO_SAVE_DEBOUNCE_TIMEOUT_MS,
+  DEFAULT_DOCUMENT_NAME,
+  DOCUMENT_EDITOR_SERVICE_URL,
+  SYNCFUSION_LICENSE_KEY,
+} from './constants';
 import { DocumentSidebar } from './DocumentSidebar';
+import { Document } from './types';
+import {
+  downloadDocument,
+  openDocumentFromServer,
+  reloadDocumentInEditor,
+  saveDocument,
+} from './utils/documentEditorHelpers';
 
 DocumentEditorContainerComponent.Inject(Toolbar);
-registerLicense(
-  'Ngo9BigBOggjHTQxAR8/V1NMaF1cXmhNYVJ2WmFZfVtgdV9DZVZUTGYuP1ZhSXxWdkZiWH9fdXJVR2BaWEE='
-);
-
-const AUTO_SAVE_DEBOUNCE_TIMEOUT_MS = 1000;
-const WILL_BASE_URL = 'http://localhost:3000/api/will';
-
-const willClient = axios.create({
-  baseURL: WILL_BASE_URL,
-  headers: {
-    'Content-Type': 'multipart/form-data',
-  },
-});
+registerLicense(SYNCFUSION_LICENSE_KEY);
 
 export const DocumentEditor = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,6 +40,17 @@ export const DocumentEditor = () => {
   const [isOpeningNewFile, setIsOpeningNewFile] = useState(false);
   const navigate = useNavigate();
   const { id } = useParams();
+
+  const reloadDocument = useCallback(async () => {
+    if (!id) return;
+    const reloadedDocument = await reloadDocumentInEditor(
+      id,
+      editorRef.current?.documentEditor
+    );
+    if (reloadedDocument) {
+      setDocument(reloadedDocument);
+    }
+  }, [id]);
 
   const openFile = useCallback((file?: File | Blob) => {
     if (!file) return;
@@ -56,20 +66,11 @@ export const DocumentEditor = () => {
 
   useEffect(() => {
     if (id && (!document || document.id !== Number(id)) && !isOpeningNewFile) {
-      willClient.get(`/${id}`, { responseType: 'blob' }).then((response) => {
-        const file = new File([response.data], 'Document.docx', {
-          type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        });
-        openFile(file);
-        setDocument({
-          id: Number(id),
-          mimeType: response.data.type,
-          size: response.data.size,
-          buffer: '',
-        });
-      });
+      openDocumentFromServer(id, editorRef.current?.documentEditor).then(
+        setDocument
+      );
     }
-  }, [id, document, openFile, isOpeningNewFile]);
+  }, [id, document, isOpeningNewFile]);
 
   const handleOpen = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const fileInput = event.target.files?.[0];
@@ -82,33 +83,17 @@ export const DocumentEditor = () => {
 
   const handleDownload = async () => {
     const editor = editorRef.current!.documentEditor;
-    const blob = await editor.saveAsBlob('Docx');
 
-    const file = new File([blob], `Document.docx`, {
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    });
-
-    downloadFile(file);
+    await downloadDocument(DEFAULT_DOCUMENT_NAME, editor);
   };
 
   const saveFile = useCallback(async () => {
     const editor = editorRef.current!.documentEditor;
+    const savedDocument = await saveDocument(editor, id);
 
-    const blob = await editor.saveAsBlob('Docx');
-    const file = new File([blob], `Document.docx`, {
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    });
-
-    if (id) {
-      await willClient.put(`/${id}`, {
-        file,
-      });
-    } else {
-      const response = await willClient.post('', {
-        file,
-      });
-      setDocument(response.data);
-      navigate(`/document/${response.data.id}`, { replace: true });
+    if (savedDocument) {
+      setDocument(savedDocument);
+      navigate(`/document/${savedDocument.id}`, { replace: true });
     }
   }, [id, navigate]);
 
@@ -161,7 +146,7 @@ export const DocumentEditor = () => {
           <div className="w-3/4">
             <DocumentEditorContainerComponent
               height="calc(100vh - 200px)"
-              serviceUrl="https://ej2services.syncfusion.com/production/web-services/api/documenteditor/"
+              serviceUrl={DOCUMENT_EDITOR_SERVICE_URL}
               enableToolbar={true}
               showPropertiesPane={false}
               ref={editorRef}
@@ -181,19 +166,15 @@ export const DocumentEditor = () => {
             />
           </div>
           <div className="w-1/4 mt-4 mt-0">
-            {editorRef && <DocumentSidebar editorRef={editorRef} />}
+            {editorRef && (
+              <DocumentSidebar
+                editorRef={editorRef}
+                onClauseAdded={reloadDocument}
+              />
+            )}
           </div>
         </div>
       </div>
     </>
   );
-};
-
-const downloadFile = (file: File) => {
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name;
-  document.body.appendChild(a);
-  a.click();
 };

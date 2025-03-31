@@ -1,69 +1,51 @@
+import { DocumentEditor } from '@syncfusion/ej2-documenteditor';
 import { DocumentEditorContainerComponent } from '@syncfusion/ej2-react-documenteditor';
-import {
-  DocumentEditor,
-  SectionBreakType,
-} from '@syncfusion/ej2-documenteditor';
-import { RefObject, useState, useEffect, useCallback } from 'react';
+import { RefObject, useCallback, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { ClauseDialog } from './ClauseDialog';
 import { AddClauseButton } from './components/AddClauseButton';
-import axios from 'axios';
+import { Clause } from './types';
+import { insertClause, removeClause } from './utils/documentEditorHelpers';
+import { fetchClauses } from './api/clausesApi';
 
 interface DocumentSidebarProps {
   editorRef: RefObject<DocumentEditorContainerComponent | null>;
+  onClauseAdded?: () => void;
 }
 
-interface Clause {
-  id: string;
-  title: string;
-  content: string;
-}
-
-const CLAUSES_BASE_URL = 'http://localhost:3000/api/clauses';
-
-export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
+export const DocumentSidebar = ({
+  editorRef,
+  onClauseAdded,
+}: DocumentSidebarProps) => {
   const documentEditor = editorRef.current?.documentEditor as DocumentEditor;
   const [bookmarks, setBookmarks] = useState<string[]>([]);
   const [showDialog, setShowDialog] = useState(false);
   const [availableClauses, setAvailableClauses] = useState<Clause[]>([]);
+  const { id } = useParams();
 
-  const generateUniqueBookmarkName = useCallback(
-    (baseTitle: string) => {
-      let bookmarkName = baseTitle;
-      let counter = 1;
-      const existingBookmarks = documentEditor?.getBookmarks() || [];
-
-      while (existingBookmarks.includes(bookmarkName)) {
-        bookmarkName = `${baseTitle} (${counter})`;
-        counter++;
-      }
-
-      return bookmarkName;
-    },
-    [documentEditor]
-  );
-
-  const updateBookmarks = useCallback(() => {
-    const currentBookmarks = documentEditor?.getBookmarks() || [];
+  const updateBookmarksList = useCallback(() => {
+    if (!documentEditor) return;
+    const currentBookmarks = documentEditor.getBookmarks() || [];
     setBookmarks(currentBookmarks);
   }, [documentEditor]);
 
   useEffect(() => {
     if (!documentEditor) return;
 
-    updateBookmarks();
+    updateBookmarksList();
 
     const originalContentChange = documentEditor.contentChange;
     const originalDocumentChange = documentEditor.documentChange;
 
     documentEditor.contentChange = () => {
-      updateBookmarks();
+      updateBookmarksList();
       if (originalContentChange) {
         originalContentChange();
       }
     };
 
     documentEditor.documentChange = () => {
-      updateBookmarks();
+      updateBookmarksList();
       if (originalDocumentChange) {
         originalDocumentChange();
       }
@@ -75,18 +57,9 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
         documentEditor.contentChange = originalContentChange;
       }
     };
-  }, [documentEditor, updateBookmarks]);
+  }, [documentEditor, updateBookmarksList]);
 
-  const fetchClauses = useCallback(async () => {
-    try {
-      const response = await axios.get(CLAUSES_BASE_URL);
-      setAvailableClauses(response.data);
-    } catch (error) {
-      console.error('Error fetching clauses:', error);
-    }
-  }, []);
-
-  const handleAddClause = (bookmark?: string, atStart?: boolean) => {
+  const handleAddClause = async (bookmark?: string, atStart?: boolean) => {
     if (!documentEditor) return;
 
     if (bookmark) {
@@ -98,43 +71,9 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
       documentEditor.selection.moveToLineStart();
     }
 
-    fetchClauses();
+    const clauses = await fetchClauses();
+    setAvailableClauses(clauses);
     setShowDialog(true);
-  };
-
-  const handleSelectClause = async (clause: Clause) => {
-    const { editor, selection } = documentEditor ?? {};
-    if (!editor) return;
-
-    editor.insertSectionBreak(SectionBreakType.Continuous);
-
-    const startOffset: string = selection.startOffset;
-    let endOffset;
-
-    editor.insertText(`${clause.content}`);
-    selection.moveToLineEnd();
-    endOffset = selection.endOffset;
-
-    const bookmarkName = generateUniqueBookmarkName(clause.title);
-
-    selection.select(startOffset, endOffset);
-    editor.insertBookmark(bookmarkName);
-
-    // clear the selection
-    selection.select(endOffset, endOffset);
-
-    // add a new line after the bookmark
-    selection.moveToLineEnd();
-    editor.insertSectionBreak(SectionBreakType.Continuous);
-  };
-
-  const handleRemoveClause = (bookmark: string) => {
-    if (!documentEditor) return;
-
-    documentEditor.selection.selectBookmark(bookmark, false);
-
-    documentEditor.editor.delete();
-    documentEditor.editor.deleteBookmark(bookmark);
   };
 
   const handleCloseDialog = useCallback(() => {
@@ -143,6 +82,22 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
       documentEditor.focusIn();
     }, 100);
   }, [documentEditor]);
+
+  const handleSelectClause = async (clause: Clause) => {
+    if (!documentEditor || !id) return;
+    const newBookmark = insertClause(documentEditor, clause);
+    if (!newBookmark) return;
+
+    onClauseAdded?.();
+  };
+
+  const handleRemoveClause = (bookmark: string) => {
+    if (!documentEditor) return;
+    removeClause(documentEditor, bookmark);
+    setBookmarks((prevBookmarks) =>
+      prevBookmarks.filter((b) => b !== bookmark)
+    );
+  };
 
   return (
     <div className="h-full bg-white p-4">
