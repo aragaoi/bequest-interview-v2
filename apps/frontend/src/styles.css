@@ -1,3 +1,5 @@
+@import '@syncfusion/ej2-icons/styles/material.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

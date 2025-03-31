@@ -9,6 +9,7 @@
     "@nestjs/core": "^10.0.2",
     "@nestjs/platform-express": "^10.0.2",
     "@nestjs/typeorm": "^11.0.0",
+    "@syncfusion/ej2-icons": "^29.1.33",
     "@syncfusion/ej2-react-documenteditor": "^28.2.11",
     "@syncfusion/ej2-react-popups": "^29.1.34",
     "adm-zip": "^0.5.16",

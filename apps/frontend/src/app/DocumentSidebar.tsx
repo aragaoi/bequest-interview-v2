@@ -3,8 +3,9 @@ import {
   DocumentEditor,
   SectionBreakType,
 } from '@syncfusion/ej2-documenteditor';
-import { RefObject, useState, useEffect, useCallback, use } from 'react';
+import { RefObject, useState, useEffect, useCallback } from 'react';
 import { ClauseDialog } from './ClauseDialog';
+import { AddClauseButton } from './components/AddClauseButton';
 import axios from 'axios';
 
 interface DocumentSidebarProps {
@@ -85,7 +86,12 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
     }
   }, []);
 
-  const handleAddClause = () => {
+  const handleAddClause = (bookmark?: string) => {
+    if (bookmark && documentEditor) {
+      documentEditor.selection.selectBookmark(bookmark);
+      documentEditor.selection.moveToLineEnd();
+    }
+
     fetchClauses();
     setShowDialog(true);
   };
@@ -136,34 +142,46 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
     <div className="h-full bg-white p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">Clauses</h2>
-        <button
-          onClick={handleAddClause}
-          className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-        >
-          Add Clause
-        </button>
       </div>
-      <div className="space-y-2 h-[calc(100%-3rem)] overflow-y-auto">
-        {bookmarks.map((bookmark: string) => (
-          <div
-            key={bookmark}
-            className="flex justify-between items-center p-2 hover:bg-gray-100 rounded"
-          >
-            <span
-              className="cursor-pointer flex-grow"
-              onClick={() => {
-                documentEditor.selection.selectBookmark(bookmark);
-              }}
-            >
-              {bookmark}
-            </span>
-            <button
-              onClick={() => handleRemoveClause(bookmark)}
-              className="text-red-500 hover:text-red-700"
-              title="Remove clause"
-            >
-              ✕
-            </button>
+      <div className="space-y-1 h-[calc(100%-3rem)] overflow-y-auto">
+        <AddClauseButton
+          onClick={() => handleAddClause()}
+          title="Add clause at the beginning"
+          variant="text"
+          text="Add Clause at Start"
+        />
+        {bookmarks.map((bookmark: string, index) => (
+          <div key={bookmark} className="group space-y-1">
+            <div className="flex justify-between items-center px-3 py-1.5 hover:bg-blue-50 rounded-md transition-colors bg-blue-50 border border-blue-100">
+              <span
+                className="cursor-pointer flex-grow text-sm text-blue-700 hover:text-blue-800 transition-colors"
+                onClick={() => {
+                  documentEditor.selection.selectBookmark(bookmark);
+                }}
+              >
+                {bookmark}
+              </span>
+              <button
+                onClick={() => handleRemoveClause(bookmark)}
+                className="text-gray-400 hover:text-red-500 transition-all text-xs py-0.5 px-1.5"
+                title="Remove clause"
+              >
+                ✕
+              </button>
+            </div>
+            {index === bookmarks.length - 1 ? (
+              <AddClauseButton
+                onClick={() => handleAddClause(bookmark)}
+                title="Add clause at the end"
+                variant="text"
+                text="Add Clause at End"
+              />
+            ) : (
+              <AddClauseButton
+                onClick={() => handleAddClause(bookmark)}
+                title="Add clause after this one"
+              />
+            )}
           </div>
         ))}
       </div>
