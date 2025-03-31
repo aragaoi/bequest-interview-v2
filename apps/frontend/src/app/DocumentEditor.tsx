@@ -24,6 +24,7 @@ registerLicense(
   'Ngo9BigBOggjHTQxAR8/V1NMaF1cXmhNYVJ2WmFZfVtgdV9DZVZUTGYuP1ZhSXxWdkZiWH9fdXJVR2BaWEE='
 );
 
+const AUTO_SAVE_DEBOUNCE_TIMEOUT_MS = 3_000;
 const WILL_BASE_URL = 'http://localhost:3000/api/will';
 
 const willClient = axios.create({
@@ -109,12 +110,15 @@ export const DocumentEditor = () => {
       });
 
       await saveFile(file);
-    }, 1000);
+    }, AUTO_SAVE_DEBOUNCE_TIMEOUT_MS);
   }, []);
 
   return (
     <>
-      <div className="px-24 bg-gray-300 pt-12 h-screen">
+      <div
+        id="document-editor"
+        className="px-4 md:px-24 bg-gray-300 pt-12 h-screen"
+      >
         <div className="flex justify-end space-x-4 mb-4">
           <button
             className="bg-gray-500 text-white py-2 px-4 rounded"
@@ -137,7 +141,7 @@ export const DocumentEditor = () => {
           </button>
         </div>
         <div className="flex flex-row">
-          <div className="w-full w-3/4">
+          <div className="w-3/4">
             <DocumentEditorContainerComponent
               height="calc(100vh - 200px)"
               serviceUrl="https://ej2services.syncfusion.com/production/web-services/api/documenteditor/"
@@ -159,7 +163,7 @@ export const DocumentEditor = () => {
               contentChange={(e) => {}}
             />
           </div>
-          <div className="w-full w-1/4 mt-4 mt-0">
+          <div className="w-1/4 mt-4 mt-0">
             {editorRef.current && <DocumentSidebar editorRef={editorRef} />}
           </div>
         </div>

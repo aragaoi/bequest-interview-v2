@@ -1,15 +1,26 @@
 import { DocumentEditorContainerComponent } from '@syncfusion/ej2-react-documenteditor';
 import { DocumentEditor } from '@syncfusion/ej2-documenteditor';
 import { RefObject, useState, useEffect, useCallback } from 'react';
+import { ClauseDialog } from './ClauseDialog';
+import axios from 'axios';
 
 interface DocumentSidebarProps {
   editorRef: RefObject<DocumentEditorContainerComponent | null>;
 }
 
+interface Clause {
+  id: string;
+  title: string;
+  content: string;
+}
+
+const CLAUSES_BASE_URL = 'http://localhost:3000/api/clauses';
+
 export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
   const documentEditor = editorRef.current?.documentEditor as DocumentEditor;
   const [bookmarks, setBookmarks] = useState<string[]>([]);
-  const [clauseCount, setClauseCount] = useState<number>(0);
+  const [showDialog, setShowDialog] = useState(false);
+  const [availableClauses, setAvailableClauses] = useState<Clause[]>([]);
 
   const updateBookmarks = useCallback(() => {
     const currentBookmarks = documentEditor?.getBookmarks() || [];
@@ -20,26 +31,50 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
     if (!documentEditor) return;
 
     updateBookmarks();
-    documentEditor.contentChange = updateBookmarks;
+
+    const originalContentChange = documentEditor.contentChange;
+
+    documentEditor.contentChange = () => {
+      updateBookmarks();
+      if (originalContentChange) {
+        originalContentChange();
+      }
+    };
+
+    // Cleanup
+    return () => {
+      if (originalContentChange) {
+        documentEditor.contentChange = originalContentChange;
+      }
+    };
   }, [documentEditor, updateBookmarks]);
 
+  const fetchClauses = async () => {
+    try {
+      const response = await axios.get(CLAUSES_BASE_URL);
+      setAvailableClauses(response.data);
+    } catch (error) {
+      console.error('Error fetching clauses:', error);
+    }
+  };
+
   const handleAddClause = () => {
+    fetchClauses();
+    setShowDialog(true);
+  };
+
+  const handleSelectClause = async (clause: Clause) => {
     const { editor, selection } = documentEditor ?? {};
     if (!editor) return;
 
     const startOffset: string = selection.startOffset;
     let endOffset;
 
-    const clauseText = `New Clause ${clauseCount + 1}\n\n`;
-    setClauseCount(clauseCount + 1);
-
-    editor.insertText(clauseText);
+    editor.insertText(`\n${clause.content}`);
 
     endOffset = selection.endOffset;
-
     selection.select(startOffset, endOffset);
-
-    editor.insertBookmark(clauseText);
+    editor.insertBookmark(clause.title);
     selection.select(endOffset, endOffset);
   };
 
@@ -67,6 +102,12 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
           </div>
         ))}
       </div>
+      <ClauseDialog
+        visible={showDialog}
+        onClose={() => setShowDialog(false)}
+        onSelect={handleSelectClause}
+        clauses={availableClauses}
+      />
     </div>
   );
 };
