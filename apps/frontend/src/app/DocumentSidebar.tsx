@@ -1,6 +1,9 @@
 import { DocumentEditorContainerComponent } from '@syncfusion/ej2-react-documenteditor';
-import { DocumentEditor } from '@syncfusion/ej2-documenteditor';
-import { RefObject, useState, useEffect, useCallback } from 'react';
+import {
+  DocumentEditor,
+  SectionBreakType,
+} from '@syncfusion/ej2-documenteditor';
+import { RefObject, useState, useEffect, useCallback, use } from 'react';
 import { ClauseDialog } from './ClauseDialog';
 import axios from 'axios';
 
@@ -22,6 +25,22 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
   const [showDialog, setShowDialog] = useState(false);
   const [availableClauses, setAvailableClauses] = useState<Clause[]>([]);
 
+  const generateUniqueBookmarkName = useCallback(
+    (baseTitle: string) => {
+      let bookmarkName = baseTitle;
+      let counter = 1;
+      const existingBookmarks = documentEditor?.getBookmarks() || [];
+
+      while (existingBookmarks.includes(bookmarkName)) {
+        bookmarkName = `${baseTitle} (${counter})`;
+        counter++;
+      }
+
+      return bookmarkName;
+    },
+    [documentEditor]
+  );
+
   const updateBookmarks = useCallback(() => {
     const currentBookmarks = documentEditor?.getBookmarks() || [];
     setBookmarks(currentBookmarks);
@@ -33,11 +52,19 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
     updateBookmarks();
 
     const originalContentChange = documentEditor.contentChange;
+    const originalDocumentChange = documentEditor.documentChange;
 
     documentEditor.contentChange = () => {
       updateBookmarks();
       if (originalContentChange) {
         originalContentChange();
+      }
+    };
+
+    documentEditor.documentChange = () => {
+      updateBookmarks();
+      if (originalDocumentChange) {
+        originalDocumentChange();
       }
     };
 
@@ -49,14 +76,14 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
     };
   }, [documentEditor, updateBookmarks]);
 
-  const fetchClauses = async () => {
+  const fetchClauses = useCallback(async () => {
     try {
       const response = await axios.get(CLAUSES_BASE_URL);
       setAvailableClauses(response.data);
     } catch (error) {
       console.error('Error fetching clauses:', error);
     }
-  };
+  }, []);
 
   const handleAddClause = () => {
     fetchClauses();
@@ -67,16 +94,43 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
     const { editor, selection } = documentEditor ?? {};
     if (!editor) return;
 
+    editor.insertSectionBreak(SectionBreakType.Continuous);
+
     const startOffset: string = selection.startOffset;
     let endOffset;
 
-    editor.insertText(`\n${clause.content}`);
-
+    editor.insertText(`${clause.content}`);
+    selection.moveToLineEnd();
     endOffset = selection.endOffset;
+
+    const bookmarkName = generateUniqueBookmarkName(clause.title);
+
     selection.select(startOffset, endOffset);
-    editor.insertBookmark(clause.title);
+    editor.insertBookmark(bookmarkName);
+
+    // clear the selection
     selection.select(endOffset, endOffset);
+
+    // add a new line after the bookmark
+    selection.moveToLineEnd();
+    editor.insertSectionBreak(SectionBreakType.Continuous);
   };
+
+  const handleRemoveClause = (bookmark: string) => {
+    if (!documentEditor) return;
+
+    documentEditor.selection.selectBookmark(bookmark, false);
+
+    documentEditor.editor.delete();
+    documentEditor.editor.deleteBookmark(bookmark);
+  };
+
+  const handleCloseDialog = useCallback(() => {
+    setShowDialog(false);
+    setTimeout(() => {
+      documentEditor.focusIn();
+    }, 100);
+  }, [documentEditor]);
 
   return (
     <div className="h-full bg-white p-4">
@@ -93,18 +147,29 @@ export const DocumentSidebar = ({ editorRef }: DocumentSidebarProps) => {
         {bookmarks.map((bookmark: string) => (
           <div
             key={bookmark}
-            className="p-2 hover:bg-gray-100 rounded cursor-pointer"
-            onClick={() => {
-              documentEditor.selection.selectBookmark(bookmark);
-            }}
+            className="flex justify-between items-center p-2 hover:bg-gray-100 rounded"
           >
-            {bookmark}
+            <span
+              className="cursor-pointer flex-grow"
+              onClick={() => {
+                documentEditor.selection.selectBookmark(bookmark);
+              }}
+            >
+              {bookmark}
+            </span>
+            <button
+              onClick={() => handleRemoveClause(bookmark)}
+              className="text-red-500 hover:text-red-700"
+              title="Remove clause"
+            >
+              ✕
+            </button>
           </div>
         ))}
       </div>
       <ClauseDialog
         visible={showDialog}
-        onClose={() => setShowDialog(false)}
+        onClose={handleCloseDialog}
         onSelect={handleSelectClause}
         clauses={availableClauses}
       />

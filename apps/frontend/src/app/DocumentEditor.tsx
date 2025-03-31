@@ -24,7 +24,7 @@ registerLicense(
   'Ngo9BigBOggjHTQxAR8/V1NMaF1cXmhNYVJ2WmFZfVtgdV9DZVZUTGYuP1ZhSXxWdkZiWH9fdXJVR2BaWEE='
 );
 
-const AUTO_SAVE_DEBOUNCE_TIMEOUT_MS = 3_000;
+const AUTO_SAVE_DEBOUNCE_TIMEOUT_MS = 1000;
 const WILL_BASE_URL = 'http://localhost:3000/api/will';
 
 const willClient = axios.create({
@@ -43,10 +43,17 @@ export const DocumentEditor = () => {
 
   const openFile = useCallback((file?: File | Blob) => {
     if (!file) return;
-
     const editor = editorRef.current!.documentEditor;
     editor.open(file);
   }, []);
+
+  const resetDocumentState = useCallback(() => {
+    setDocument(null);
+    navigate('/', { replace: true });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [navigate]);
 
   useEffect(() => {
     if (id && (!document || document.id !== Number(id))) {
@@ -65,8 +72,11 @@ export const DocumentEditor = () => {
     }
   }, [id, document, openFile]);
 
-  const handleOpen = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOpen = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const fileInput = event.target.files?.[0];
+    if (!fileInput) return;
+
+    resetDocumentState();
     openFile(fileInput);
   };
 
@@ -81,37 +91,44 @@ export const DocumentEditor = () => {
     downloadFile(file);
   };
 
-  const saveFile = useCallback(
-    async (file: File) => {
-      if (id) {
-        await willClient.put(`/${id}`, {
-          file,
-        });
-      } else {
-        const response = await willClient.post('', {
-          file,
-        });
-        setDocument(response.data);
-        navigate(`/document/${response.data.id}`, { replace: true });
-      }
-    },
-    [document, setDocument, navigate]
-  );
+  const saveFile = useCallback(async () => {
+    const editor = editorRef.current!.documentEditor;
+
+    const blob = await editor.saveAsBlob('Docx');
+    const file = new File([blob], `Document.docx`, {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+
+    if (id) {
+      await willClient.put(`/${id}`, {
+        file,
+      });
+    } else {
+      const response = await willClient.post('', {
+        file,
+      });
+      setDocument(response.data);
+      navigate(`/document/${response.data.id}`, { replace: true });
+    }
+  }, [id, navigate]);
 
   useEffect(() => {
     const editor = editorRef.current!.documentEditor;
     editor.documentEditorSettings.showBookmarks = true;
 
-    editor.contentChange = debounce(async () => {
-      console.log('Document Content changed');
-      const blob = await editor.saveAsBlob('Docx');
-      const file = new File([blob], `Document.docx`, {
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      });
-
-      await saveFile(file);
+    const debouncedSaveFile = debounce(async () => {
+      await saveFile();
     }, AUTO_SAVE_DEBOUNCE_TIMEOUT_MS);
-  }, []);
+
+    editor.contentChange = () => {
+      console.log('Document Content changed');
+      debouncedSaveFile();
+    };
+    editor.documentChange = () => {
+      console.log('Document changed');
+      debouncedSaveFile();
+    };
+  }, [saveFile]);
 
   return (
     <>
@@ -164,7 +181,7 @@ export const DocumentEditor = () => {
             />
           </div>
           <div className="w-1/4 mt-4 mt-0">
-            {editorRef.current && <DocumentSidebar editorRef={editorRef} />}
+            {editorRef && <DocumentSidebar editorRef={editorRef} />}
           </div>
         </div>
       </div>
